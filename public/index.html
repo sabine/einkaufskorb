@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!--<script src="https://js.stripe.com/v3"></script>-->
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="theme-color" content="#000000">
+    <!--
+      manifest.json provides metadata used when your web app is added to the
+      homescreen on Android. See https://developers.google.com/web/fundamentals/engage-and-retain/web-app-manifest/
+    -->
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json">
+    <link rel="shortcut icon" href="%PUBLIC_URL%/favicon.ico">
+    <title>Einkaufskorb</title>
+</head>
+<body>
+    <noscript>
+        You need to enable JavaScript to run this app.
+    </noscript>
+    <div><a href="#" onclick="cart_view && cart_view.ports.toggleCart.send(null);event.preventDefault()">Einkaufskorb (<span class="einkaufskorb__count"></span>)</a></div>
+    <div id="cart"></div>
+    <div id="products"></div>
+<script>
+document.addEventListener("DOMContentLoaded", function(event) { 
+  var products_node = document.getElementById('products');
+  if (products_node) {
+    window.products_view = Products.Elm.Products.init({
+      node: products_node,
+      flags: {
+        add_to_cart: "Add to cart",
+        remove: "Remove"
+      }
+    });
+  }
+
+  var cart_node = document.getElementById('cart');
+  if (cart_node) {
+    window.cart_view = Cart.Elm.Cart.init({
+      node: cart_node,
+      flags: {
+        begin_checkout: "Weiter",
+        abort_checkout: "Zurück",
+        address_form_placeholder1: "Adresse",
+        address_form_placeholder2: "Adresse (Zusatz)",
+        address_form_placeholder_zip_code_city: "PLZ und Ort",
+        address_form_placeholder_country: "Land",
+        order_now_by_email: "Jetzt per E-Mail bestellen",
+        total: "Gesamtsumme:"
+        }
+    });
+  }
+
+  window.einkaufskorb__count = document.getElementsByClassName('einkaufskorb__count');
+    
+  function distributeCartFromLocalStorageOnce() {
+    var cart = localStorage.getItem("einkaufskorb.cart");
+    if((typeof cart === "undefined") || (cart == "undefined")) cart = "[]";
+    cart = JSON.parse(cart);
+    
+    products_view && products_view.ports.setCart.send(cart);
+    cart_view && cart_view.ports.setCart.send(cart);
+    for (i = 0; i < einkaufskorb__count.length; i++) {
+      einkaufskorb__count[i].innerHTML = cart.length;
+    }
+}
+
+  function distributeCartFromLocalStorage() {
+    distributeCartFromLocalStorageOnce();
+    
+    setTimeout(distributeCartFromLocalStorage, 2500);
+  }
+
+  distributeCartFromLocalStorage();
+
+
+  function saveCartToLocalStorage (cart) {
+    localStorage.setItem("einkaufskorb.cart", JSON.stringify(cart));
+    distributeCartFromLocalStorageOnce();
+  }
+
+  products_view && products_view.ports.saveCart.subscribe(saveCartToLocalStorage);
+  cart_view && cart_view.ports.saveCart.subscribe(saveCartToLocalStorage);
+});
+</script>
+    
+<script>
+function sendMail(subject, message, recipient)
+{
+  document.location.href = "mailto:"
+    + encodeURIComponent(recipient)
+    + "?subject="
+    + encodeURIComponent(subject)
+    + "&body=" + encodeURIComponent(message);
+}
+
+function renderPrice (p) {
+  return p*1.0/100 + (p % 10 === 0? "0": "") + "€";
+}
+
+function checkout (checkout_data) {
+  console.log(["checkout", checkout_data]);
+  
+  var message = "Hallo Britta,\n\nich bestelle heute bei Dir:\n\n";
+  
+  var total = 0.0;
+  checkout_data.cart.forEach(function (item) {
+    message += item.amount + "x " + item.product.name + "  zu je "+ renderPrice(item.product.price) + "  = "+renderPrice(item.product.price*item.amount)+"\n";
+    total += item.product.price*item.amount;
+  });
+  
+  message += "\nInsgesamt: "+renderPrice(total)+"\n\nDie Sachen sollen versendet werden an:\n"
+    + checkout_data.address.address1 + "\n"
+    + checkout_data.address.address2 + "\n"
+    + checkout_data.address.zipCodeCity + "\n"
+    + checkout_data.address.country + "\n"
+    ;
+  
+  sendMail("Bestellung auf brittaschier.com", message,"test@arerharlhaerjhtlhrthjkrslt.test")
+}
+
+document.addEventListener("DOMContentLoaded", function(event) { 
+  products_view && products_view.ports.checkout.subscribe(function (model) { checkout(model)});
+  cart_view && cart_view.ports.checkout.subscribe(function (model) { checkout(model) });
+});
+</script>
+
+
+<script>
+  
+document.addEventListener("DOMContentLoaded", function(event) { 
+  var products = [
+{id: "abc", name: "Tasse", price: 2995, images: [{src: "abc.jpg", small_thumbnail: "abc.jpg", large_thumbnail: "abc.jpg"}]},
+{id: "def", name: "Toilettenpapier", price: 2995, images: []}];
+    
+  products_view && products_view.ports.setProducts.send(products);
+  cart_view && cart_view.ports.setProducts.send(products);
+});
+    </script>
+</body>
+</html>
